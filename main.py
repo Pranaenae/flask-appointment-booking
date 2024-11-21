@@ -20,6 +20,8 @@ CORS(app)
 app.config["JWT_SECRET_KEY"] = os.environ['JWT_SECRET_KEY']
 jwt = JWTManager(app)
 @app.route("/")
+def ping() -> Tuple [str, int]:
+    return "App is running", 200
 @app.route('/login', methods=['POST'])
 def login() -> Tuple[Dict[str, Any],Any]:
     conn = get_db_connection()
@@ -53,7 +55,7 @@ def login() -> Tuple[Dict[str, Any],Any]:
 
 @app.route("/protected", methods=["GET"])
 @jwt_required()
-def protected():
+def protected()-> Tuple[Dict[str, Any],Any]:
     current_user= get_jwt_identity()
     return {
         "logged_in_as": current_user
