@@ -4,16 +4,41 @@ from typing import Dict, Any, Optional, Tuple
 from flask import Flask, request
 from flask_jwt_extended import JWTManager, create_access_token, get_jwt_identity, jwt_required
 import psycopg2
+from psycopg2 import OperationalError, Error
 from flask_cors import CORS
 
 def get_db_connection():
-    return psycopg2.connect(
-    host=os.environ['DB_HOST'],
-    database=os.environ['DB_NAME'],
-    user=os.environ['DB_USERNAME'],
-    password=os.environ['DB_PASSWORD'],
-    port=os.environ['DB_PORT']
-)
+    try: 
+        required_env_vars = ['DB_HOST', 'DB_NAME', 'DB_USERNAME', 'DB_PASSWORD', 'DB_PORT']        
+        for var in required_env_vars:
+            if var not in os.environ:
+                raise ValueError(f"Missing environment variable: {var}")
+        connection = psycopg2.connect(
+        host=os.environ['DB_HOST'],
+        database=os.environ['DB_NAME'],
+        user=os.environ['DB_USERNAME'],
+        password=os.environ['DB_PASSWORD'],
+        port=os.environ['DB_PORT']
+        )
+
+        connection.autocommit = False
+
+        return connection    
+
+    except OperationalError as e:
+        # Handle connection-specific errors (e.g., wrong credentials, network issues)
+        print(f"Error connecting to the database: {e}")
+        raise
+    
+    except ValueError as e:
+        # Handle missing environment variables
+        print(f"Configuration error: {e}")
+        raise
+    
+    except Error as e:
+        # Catch any other psycopg2-related errors
+        print(f"Database connection error: {e}")
+        raise
 
 app = Flask(__name__)
 CORS(app)
