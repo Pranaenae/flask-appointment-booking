@@ -43,7 +43,7 @@ def get_db_connection():
 app = Flask(__name__)
 CORS(app)
 
-app.config["JWT_SECRET_KEY"] = os.environ['JWT_SECRET_KEY']
+app.config["JWT_SECRET_KEY"] = os.environ.get('JWT_SECRET_KEY' , 'helloworld')
 jwt = JWTManager(app)
 @app.route("/")
 def ping() -> Tuple [str, int]:
