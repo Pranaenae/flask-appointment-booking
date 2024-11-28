@@ -1,7 +1,7 @@
 services:
  web:
    build: .
-   image: flask-login
+   image: pranay1717/flask-login
    ports:
      - "5000:5000"
    env_file: .env
