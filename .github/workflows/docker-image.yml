@@ -23,15 +23,6 @@ jobs:
     environment: Test
 
     steps:
-      - name: Configure AWS credentials 
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.ECS_ROLE_ARN }}
-          aws-region: us-east-1
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -41,6 +32,9 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
       - name: Build and push
         id: build-image
         uses: docker/build-push-action@v6
@@ -49,12 +43,30 @@ jobs:
           tags: |
             ${{ env.IMAGE_REPOSITORY }}:${{ github.run_number }}
             ${{ env.IMAGE_REPOSITORY }}:latest
+            
+    update:
+
+    runs-on: ubuntu-latest
+    environment: Test
+
+    steps:
+      - name: Configure AWS credentials 
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.ECS_ROLE_ARN }}
+          aws-region: us-east-1
+
+      - name: Get current task definition
+        id: task-def
+        run: |
+          task_definition=$(aws ecs describe-task-definition --task-definition app-task-definition --query taskDefinition --output json)
+          echo "task-definition=$task_definition" >> $GITHUB_OUTPUT
 
       - name: Fill in the new image ID in the Amazon ECS task definition
         id: task-def
         uses: aws-actions/amazon-ecs-render-task-definition@c804dfbdd57f713b6c079302a4c01db7017a36fc
         with:
-          task-definition: ${{ env.ECS_TASK_DEFINITION }}
+          task-definition: ${{ steps.task-def.outputs.task-definition }}
           container-name: ${{ env.CONTAINER_NAME }}
           image: ${{ env.IMAGE_REPOSITORY }}:${{ github.run_number }} 
 
