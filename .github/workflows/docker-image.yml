@@ -49,8 +49,6 @@ jobs:
           tags: |
             ${{ env.IMAGE_REPOSITORY }}:${{ github.run_number }}
             ${{ env.IMAGE_REPOSITORY }}:latest
-          run: |
-            echo "image=$IMAGE_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
 
       - name: Fill in the new image ID in the Amazon ECS task definition
         id: task-def
@@ -58,7 +56,7 @@ jobs:
         with:
           task-definition: ${{ env.ECS_TASK_DEFINITION }}
           container-name: ${{ env.CONTAINER_NAME }}
-          image: ${{ steps.build-image.outputs.image }}
+          image: ${{ env.IMAGE_REPOSITORY }}:${{ github.run_number }} 
 
       - name: Deploy Amazon ECS task definition
         uses: aws-actions/amazon-ecs-deploy-task-definition@df9643053eda01f169e64a0e60233aacca83799a
