@@ -57,8 +57,17 @@ jobs:
           role-to-assume: ${{ secrets.ECS_ROLE_ARN }}
           aws-region: us-east-1
 
-      - name: Checkout code
-        uses: actions/checkout@v3
+      # - name: Checkout code
+      #   uses: actions/checkout@v3
+      - name: Get current task definition
+        id: get-task
+        run: |
+          task_definition=$(aws ecs describe-task-definition \
+            --task-definition app-task-definition \
+            --query taskDefinition \
+            --output json)
+          echo "$task_definition" > ecs-task-definition.json
+          cat ecs-task-definition.json
 
       - name: Fill in the new image ID in the Amazon ECS task definition
         id: task-def
