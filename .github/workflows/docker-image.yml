@@ -44,7 +44,7 @@ jobs:
             ${{ env.IMAGE_REPOSITORY }}:${{ github.run_number }}
             ${{ env.IMAGE_REPOSITORY }}:latest
             
-    update:
+  update:
 
     runs-on: ubuntu-latest
     environment: Test
