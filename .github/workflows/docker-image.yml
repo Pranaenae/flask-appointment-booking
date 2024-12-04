@@ -57,6 +57,9 @@ jobs:
           role-to-assume: ${{ secrets.ECS_ROLE_ARN }}
           aws-region: us-east-1
 
+      - name: Checkout code
+        uses: actions/checkout@v3
+
       - name: Fill in the new image ID in the Amazon ECS task definition
         id: task-def
         uses: aws-actions/amazon-ecs-render-task-definition@c804dfbdd57f713b6c079302a4c01db7017a36fc
