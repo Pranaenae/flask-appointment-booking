@@ -46,6 +46,7 @@ jobs:
             
   update:
 
+    needs: build
     runs-on: ubuntu-latest
     environment: Test
 
@@ -56,17 +57,11 @@ jobs:
           role-to-assume: ${{ secrets.ECS_ROLE_ARN }}
           aws-region: us-east-1
 
-      - name: Get current task definition
-        id: get-task-def
-        run: |
-          task_definition=$(aws ecs describe-task-definition --task-definition app-task-definition --query taskDefinition --output json)
-          echo "task-definition=$task_definition" >> $GITHUB_OUTPUT
-
       - name: Fill in the new image ID in the Amazon ECS task definition
         id: task-def
         uses: aws-actions/amazon-ecs-render-task-definition@c804dfbdd57f713b6c079302a4c01db7017a36fc
         with:
-          task-definition: ${{ steps.get-task-def.outputs.task-definition }}
+          task-definition: "ecs-task-definition.json"
           container-name: ${{ env.CONTAINER_NAME }}
           image: ${{ env.IMAGE_REPOSITORY }}:${{ github.run_number }} 
 

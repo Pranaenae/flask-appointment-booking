@@ -1,0 +1,10 @@
+{
+  "family": "app-task-definition",
+  "containerDefinitions": [
+    {
+      "name": "app",
+      "image": "<IMAGE>",
+      "essential": true
+    }
+  ]
+}
