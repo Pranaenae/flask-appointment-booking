@@ -8,50 +8,9 @@ import psycopg2
 from psycopg2 import OperationalError, Error
 from flask_cors import CORS
 from datetime import datetime, timedelta
-from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
-from sqlalchemy.engine import URL
-from sqlalchemy import Integer, String
-
-def get_db_connection():
-    try: 
-        required_env_vars = ['DB_HOST', 'DB_NAME', 'DB_USERNAME', 'DB_PASSWORD', 'DB_PORT']        
-        for var in required_env_vars:
-            if var not in os.environ:
-                raise ValueError(f"Missing environment variable: {var}")
-        connection = psycopg2.connect(
-        host=os.environ['DB_HOST'],
-        database=os.environ['DB_NAME'],
-        user=os.environ['DB_USERNAME'],
-        password=os.environ['DB_PASSWORD'],
-        port=os.environ['DB_PORT']
-        )
-
-        connection.autocommit = False
-
-        return connection    
-
-    except OperationalError as e:
-        print(f"Error connecting to the database: {e}")
-        raise
-    
-    except ValueError as e:
-        print(f"Configuration error: {e}")
-        raise
-    
-    except Error as e:
-        print(f"Database connection error: {e}")
-        raise
-
-db_url = URL.create(
-    drivername=os.environ['DB_DRIVER'],
-    username=os.environ['DB_USERNAME'],
-    password=os.environ['DB_PASSWORD'],
-    host=os.environ['DB_HOST'],
-    port=os.environ['DB_PORT'],
-    database=os.environ['DB_NAME'],
-)
-print(db_url)
+from sqlalchemy import Integer, String, update, exists, select
+from database import db, db_url
+from models import Users, Appointments
 
 app = Flask(__name__)
 CORS(app, expose_headers=['Access-Token', 'Refresh-Token'])
@@ -59,12 +18,7 @@ app.config["JWT_SECRET_KEY"] = os.environ.get('JWT_SECRET_KEY' , 'helloworld')
 app.config['JWT_ACCESS_TOKEN_EXPIRES'] = int(os.environ['JWT_ACCESS_TOKEN_EXPIRES'])
 app.config["SQLALCHEMY_DATABASE_URI"] = db_url
 
-class Base(DeclarativeBase):
-  pass
-
-db = SQLAlchemy(model_class=Base)
 db.init_app(app)
-
 jwt = JWTManager(app)
 
 @app.route("/")
@@ -101,7 +55,10 @@ def login() -> Tuple[Dict[str, Any],int]:
         return jsonify({"error": "Username and password are required"}), 400
 
     user = db.get_or_404(Users, username)
-        
+
+    if password != user.password:
+        return jsonify({"error": "Username or password do not match"}), 400
+
     access_token = create_access_token(identity=username)
     refresh_token = create_refresh_token(identity=username)
     response = jsonify({"user": username, "msg": "Logged In"})
@@ -126,29 +83,19 @@ def get_appointments() -> Tuple[Dict[str, Any],int]:
         datetime.strptime(date, "%Y-%m-%d")
     except (ValueError, TypeError):
         return {"error": "Invalid date format. Use YYYY-MM-DD."}, 400
-    conn = get_db_connection()
     try:
-        with conn.cursor() as cur:
-            cur.execute('SELECT total_appointments, booked_appointments FROM appointments WHERE date= %s', (date,))
-            result: Optional[Tuple[int,int]] = cur.fetchone()
-            
-            if result is None:
-                return {
-                    "msg": "Invalid date"
-                }, 400
-                
-            print(result)
-        totalAppointments, bookedAppointments = result
+        appointment = db.get_or_404(Appointments, date)
                 
         return {
-            "date": date,
-            "totalAppointments": totalAppointments,
-            "bookedAppointments": bookedAppointments
+            "date": appointment.date,
+            "totalAppointments": appointment.total_appointments,
+            "bookedAppointments": appointment.booked_appointments
         }, 200
-    finally:
-        conn.close()
+    except Exception as e:
+        print(e)
+        return {"error": "An internal error occurred."}, 500
 
-@app.route("/appointments/add", methods=["POST"])
+@app.route("/appointments/add", methods=["GET"])
 @jwt_required()
 def add_appointment() -> Tuple[Dict[str, Any],int]:
     date=request.args.get("date")
@@ -156,14 +103,33 @@ def add_appointment() -> Tuple[Dict[str, Any],int]:
         datetime.strptime(date, "%Y-%m-%d")
     except (ValueError, TypeError):
         return {"error": "Invalid date format. Use YYYY-MM-DD."}, 400
-    conn = get_db_connection()
+    try:
+        appointment = db.one_or_404(db.select(Appointments).filter_by(date=date))
+        print("Result exists")
+        if appointment.booked_appointments < appointment.total_appointments:
+            result = db.session.execute(
+                update(Appointments)
+                .where(Appointments.date == date)
+                .values(booked_appointments=Appointments.booked_appointments + 1)
+            )
 
-class Users(db.Model):
-    username: Mapped[str] = mapped_column(String(50),unique=True,primary_key=True)
-    password: Mapped[str] = mapped_column(String(128), nullable=False)
+            print(f"Result: {result}")
+            db.session.commit()
+            print(f"Appointment booked for {date}")
+            updated_appointment = db.session.execute(db.select(Appointments).filter_by(date=date)).scalar_one()
+            print(f"Updated  appointment {updated_appointment}")
+            return {
+                "msg": f"Added appointment for date {date}",
+                "totalAppointments": updated_appointment.total_appointments,
+                "bookedAppointments": updated_appointment.booked_appointments
+            }, 200
+        else:
+            print(f"Date {date} not found")
+            return {"msg": f"Adding appointment for date {date} not allowed"}, 200
 
-    def verify_password(self, password):
-        self.password
+    except Exception as e:
+        print(f"Error: {e}")
+        return {"error": "An internal error occurred."}, 500
 
 
 with app.app_context():

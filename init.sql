@@ -38,3 +38,5 @@ SELECT cron.schedule(
 
 --View all jobs
 SELECT * FROM cron.job;
+
+SELECT prefill_appointments(10);

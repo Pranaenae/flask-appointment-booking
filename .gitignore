@@ -4,3 +4,4 @@ __pycache__/
 *.env
 *.envs
 local.md
+app/__pycache__/
