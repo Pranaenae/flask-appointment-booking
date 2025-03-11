@@ -9,15 +9,17 @@ from psycopg2 import OperationalError, Error
 from flask_cors import CORS
 from datetime import datetime, timedelta
 from sqlalchemy import Integer, String, update, exists, select
-from database import db, db_url
-from models import Users, Appointments
+from sqlalchemy.orm import joinedload
+from .database import db, db_url
+from .models import Users, Appointments
+from flask_migrate import Migrate
 
 app = Flask(__name__)
 CORS(app, expose_headers=['Access-Token', 'Refresh-Token'])
 app.config["JWT_SECRET_KEY"] = os.environ.get('JWT_SECRET_KEY' , 'helloworld')
 app.config['JWT_ACCESS_TOKEN_EXPIRES'] = int(os.environ['JWT_ACCESS_TOKEN_EXPIRES'])
 app.config["SQLALCHEMY_DATABASE_URI"] = db_url
-
+migrate = Migrate(app, db)
 db.init_app(app)
 jwt = JWTManager(app)
 
@@ -98,39 +100,12 @@ def get_appointments() -> Tuple[Dict[str, Any],int]:
 @app.route("/appointments/add", methods=["GET"])
 @jwt_required()
 def add_appointment() -> Tuple[Dict[str, Any],int]:
+    current_user= get_jwt_identity()
+    user = db.get_or_404(Users, current_user)
+    # user = Users.query.options(joinedload(Users.user_appointments)).filter_by(username=current_user).first()
     date=request.args.get("date")
     try:
         datetime.strptime(date, "%Y-%m-%d")
     except (ValueError, TypeError):
         return {"error": "Invalid date format. Use YYYY-MM-DD."}, 400
-    try:
-        appointment = db.one_or_404(db.select(Appointments).filter_by(date=date))
-        print("Result exists")
-        if appointment.booked_appointments < appointment.total_appointments:
-            result = db.session.execute(
-                update(Appointments)
-                .where(Appointments.date == date)
-                .values(booked_appointments=Appointments.booked_appointments + 1)
-            )
-
-            print(f"Result: {result}")
-            db.session.commit()
-            print(f"Appointment booked for {date}")
-            updated_appointment = db.session.execute(db.select(Appointments).filter_by(date=date)).scalar_one()
-            print(f"Updated  appointment {updated_appointment}")
-            return {
-                "msg": f"Added appointment for date {date}",
-                "totalAppointments": updated_appointment.total_appointments,
-                "bookedAppointments": updated_appointment.booked_appointments
-            }, 200
-        else:
-            print(f"Date {date} not found")
-            return {"msg": f"Adding appointment for date {date} not allowed"}, 200
-
-    except Exception as e:
-        print(f"Error: {e}")
-        return {"error": "An internal error occurred."}, 500
-
-
-with app.app_context():
-    db.create_all()
+    return user.book_appointment(date)

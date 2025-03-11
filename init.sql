@@ -15,16 +15,16 @@ CREATE TABLE appointments (
 
 CREATE EXTENSION pg_cron;
 
-CREATE OR REPLACE FUNCTION prefill_appointments(default_total INT)
+CREATE OR REPLACE FUNCTION prefill_appointments(num_days_to_fill INT, num_total_appointments INT)
 RETURNS VOID AS $$
 DECLARE
     current_date DATE := CURRENT_DATE;
     target_date DATE;
 BEGIN
-    FOR i IN 0..13 LOOP
+    FOR i IN 0..(num_days_to_fill - 1) LOOP
         target_date := current_date + i;
         INSERT INTO appointments (date, total_appointments, booked_appointments)
-        VALUES (target_date, default_total, 0)
+        VALUES (target_date, num_total_appointments, 0)
         ON CONFLICT (date) DO NOTHING;
     END LOOP;
 END;
