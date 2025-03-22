@@ -4,7 +4,7 @@ CREATE TABLE accounts(
   password varchar(255)
 );
 
-INSERT INTO accounts (username, password) 
+INSERT INTO users (username, password) 
 VALUES('pranay', 'pranay@123');
 
 CREATE TABLE appointments (

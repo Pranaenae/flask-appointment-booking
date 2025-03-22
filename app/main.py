@@ -4,8 +4,6 @@ import urllib
 from typing import Dict, Any, Optional, Tuple
 from flask import Flask, request, jsonify
 from flask_jwt_extended import JWTManager, create_access_token, get_jwt_identity, jwt_required, create_refresh_token
-import psycopg2
-from psycopg2 import OperationalError, Error
 from flask_cors import CORS
 from datetime import datetime, timedelta
 from sqlalchemy import Integer, String, update, exists, select
@@ -80,19 +78,14 @@ def protected()-> Tuple[Dict[str, Any],int]:
 @app.route("/appointments", methods=["GET"])
 @jwt_required()
 def get_appointments() -> Tuple[Dict[str, Any],int]:
-    date=request.args.get("date")
+    appointment_date=request.args.get("date")
     try:
-        datetime.strptime(date, "%Y-%m-%d")
+        datetime.strptime(appointment_date, "%Y-%m-%d")
     except (ValueError, TypeError):
         return {"error": "Invalid date format. Use YYYY-MM-DD."}, 400
     try:
-        appointment = db.get_or_404(Appointments, date)
+        return Appointments.get_appointments(appointment_date)
                 
-        return {
-            "date": appointment.date,
-            "totalAppointments": appointment.total_appointments,
-            "bookedAppointments": appointment.booked_appointments
-        }, 200
     except Exception as e:
         print(e)
         return {"error": "An internal error occurred."}, 500
@@ -102,7 +95,6 @@ def get_appointments() -> Tuple[Dict[str, Any],int]:
 def add_appointment() -> Tuple[Dict[str, Any],int]:
     current_user= get_jwt_identity()
     user = db.get_or_404(Users, current_user)
-    # user = Users.query.options(joinedload(Users.user_appointments)).filter_by(username=current_user).first()
     date=request.args.get("date")
     try:
         datetime.strptime(date, "%Y-%m-%d")
