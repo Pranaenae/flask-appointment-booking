@@ -101,3 +101,15 @@ def add_appointment() -> Tuple[Dict[str, Any],int]:
     except (ValueError, TypeError):
         return {"error": "Invalid date format. Use YYYY-MM-DD."}, 400
     return user.book_appointment(date)
+
+@app.route("/appointments/cancel", methods=["GET"])
+@jwt_required()
+def cancel_appointment() -> Tuple[Dict[str, Any],int]:
+    current_user= get_jwt_identity()
+    user = db.get_or_404(Users, current_user)
+    date=request.args.get("date")
+    try:
+        datetime.strptime(date, "%Y-%m-%d")
+    except (ValueError, TypeError):
+        return {"error": "Invalid date format. Use YYYY-MM-DD."}, 400
+    return user.cancel_appointment(date)

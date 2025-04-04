@@ -34,6 +34,30 @@ class Users(db.Model):
                 "bookedAppointments": appointment.booked_appointments
         }, 200
     
+    def cancel_appointment(self, appointment_date):
+
+        active_appointment = db.session.query(UserAppointments).filter_by(
+            username=self.username,
+            date=appointment_date,
+            active=True
+        ).one()
+
+        active_appointment.active = False
+
+        db.session.add(active_appointment)
+        db.session.commit()
+
+        appointment = Appointments.query.get(appointment_date)
+        print(appointment)
+
+        appointment.booked_appointments -= 1
+        db.session.add(appointment)
+        return {
+                "msg": f"Removed appointment for date {appointment_date}",
+                "totalAppointments": appointment.total_appointments,
+                "bookedAppointments": appointment.booked_appointments
+        }, 200
+
     def can_book_appointment(self):
         date = datetime.date.today()
         for appointment in self.user_appointments:
@@ -47,6 +71,7 @@ class UserAppointments(db.Model):
     id: Mapped[int] = mapped_column(db.Integer, primary_key=True, autoincrement=True)
     date: Mapped[datetime.date] = mapped_column(db.Date, db.ForeignKey('appointments.date'), nullable=False)
     username: Mapped[str] = mapped_column(db.String(49), db.ForeignKey('users.username'), nullable=False)
+    active: Mapped[bool] = mapped_column(db.Boolean, default=True, nullable=True)
 
     user: Mapped['Users'] = relationship(back_populates='user_appointments')
     appointment: Mapped['Appointments'] = relationship(back_populates='user_appointments')
